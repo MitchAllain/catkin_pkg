@@ -41,11 +41,16 @@ http://ros.org/reps/rep-0132.html
 
 import os
 import re
+from typing import List, Dict
 
 from catkin_pkg.changelog import CHANGELOG_FILENAME
-from catkin_pkg.changelog_generator_vcs import Tag
+from catkin_pkg.changelog_generator_vcs import Tag, VcsClientBase
 
 FORTHCOMING_LABEL = 'Forthcoming'
+SEMVER_RE = r"\d+\.\d+\.\d+"
+V_SEMVER_RE = r"v?" + SEMVER_RE
+PREFIX_SEMVER_RE = r"([a-zA-Z]+-)?" + SEMVER_RE
+PREFIX_SEMVER_RE_BOUNDARIES = r"^([a-zA-Z]+-)?" + SEMVER_RE + r"$"
 
 
 def get_all_changes(vcs_client, skip_merges=False, only_merges=False):
@@ -84,19 +89,20 @@ def get_forthcoming_changes(vcs_client, skip_merges=False, only_merges=False):
     return tag2log_entries
 
 
-def _get_version_tags(vcs_client):
+def _get_version_tags(vcs_client) -> List[Tag]:
+    """Return all version tags matching the desired regex"""
     # get all tags in descending order
     tags = vcs_client.get_tags()
-    version_tags = [t for t in tags if re.match(r'^v?\d+\.\d+.\d+$', t.name)]
+    version_tags = [t for t in tags if re.match(PREFIX_SEMVER_RE_BOUNDARIES, t.name)]
     return version_tags
 
 
-def _get_latest_version_tag_name(vcs_client):
+def _get_latest_version_tag_name(vcs_client: VcsClientBase):
     # get latest tag
     tag_name = vcs_client.get_latest_tag_name()
-    # if not re.match(r'^v?\d+\.\d+.\d+$', tag_name):
-    #     raise RuntimeError(
-   #         "The tag name '{}' doesn't match the version pattern v?x.y.z".format(tag_name))
+    if not re.match(PREFIX_SEMVER_RE_BOUNDARIES, tag_name):
+        raise RuntimeError(
+           "The tag name '{}' doesn't match the version pattern {}".format(tag_name, PREFIX_SEMVER_RE_BOUNDARIES))
     return tag_name
 
 
@@ -155,9 +161,11 @@ def generate_changelog_file(pkg_name, tag2log_entries, vcs_client=None, skip_con
     return '\n'.join(blocks)
 
 
-def update_changelog_file(data, tag2log_entries, vcs_client=None, skip_contributors=False):
-    tags = sorted_tags(tag2log_entries.keys())
+def update_changelog_file(data, tag2log_entries: Dict, vcs_client=None, skip_contributors=False):
+    tags = list(sorted_tags(tag2log_entries.keys()))
+    # print([tag.name for tag in tags])
     for i, tag in enumerate(tags):
+        print(tag.name)
         log_entries = tag2log_entries[tag]
         if log_entries is None:
             continue
@@ -171,13 +179,15 @@ def update_changelog_file(data, tag2log_entries, vcs_client=None, skip_contribut
             assert data is not None
         else:
             # find injection point of earliest following version
-            for next_tag in list(tags)[i:]:
+            for next_tag in tags[i:]:
                 match = get_version_section_match(data, version_from_tag(next_tag.name))
                 if match:
                     block = generate_version_block(version_from_tag(tag.name), tag.timestamp, log_entries, vcs_client=vcs_client, skip_contributors=skip_contributors)
                     data = data[:match.start()] + block + '\n' + data[match.start():]
                     break
-            if not match:
+            if not tags[i:]:
+                raise RuntimeError('No tags found')
+            elif not match:
                 if tag.name is None:
                     raise RuntimeError('Could not find section "%s"' % next_tag.name)
                 else:
@@ -221,9 +231,12 @@ def prepend_version_content(data, version, content):
 def version_from_tag(tag_name):
     if tag_name is None:
         return None
-    if tag_name.startswith('v'):
-        return tag_name[1:]
-    return tag_name
+    semver = re.search(SEMVER_RE, tag_name)
+    if semver:
+        return semver[0]
+    else:
+        return None
+
 
 
 def sorted_tags(tags):

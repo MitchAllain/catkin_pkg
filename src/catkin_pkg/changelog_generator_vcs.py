@@ -38,6 +38,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+from typing import List
 
 
 try:
@@ -150,7 +151,7 @@ class GitClient(VcsClientBase):
             raise RuntimeError('Could not fetch author:\n%s' % result['output'])
         return result['output']
 
-    def get_tags(self):
+    def get_tags(self) -> List[Tag]:
         # Get a decorated log, use the refnames to find the ancestor tags
         cmd_tag = [self._executable, 'log', '--simplify-by-decoration', '--decorate', '--pretty=oneline']
         result_tag = self._run_command(cmd_tag)
@@ -171,7 +172,8 @@ class GitClient(VcsClientBase):
         self._truncate_timestamps(tags)
         return tags
 
-    def get_latest_tag_name(self):
+    def get_latest_tag_name(self) -> str:
+        """Return the latest tag name using the git client"""
         cmd_describe = [self._executable, 'describe', '--abbrev=0', '--tags']
         result_describe = self._run_command(cmd_describe)
         if result_describe['returncode']:
@@ -397,7 +399,7 @@ class HgClient(VcsClientBase):
         return log_entries
 
 
-def get_vcs_client(base_path):
+def get_vcs_client(base_path) -> VcsClientBase:
     vcs_clients = []
     vcs_clients.append(GitClient)
     vcs_clients.append(HgClient)
