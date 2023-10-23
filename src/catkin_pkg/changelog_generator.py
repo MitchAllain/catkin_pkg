@@ -49,8 +49,8 @@ from catkin_pkg.changelog_generator_vcs import Tag, VcsClientBase
 FORTHCOMING_LABEL = 'Forthcoming'
 SEMVER_RE = r"\d+\.\d+\.\d+"
 V_SEMVER_RE = r"v?" + SEMVER_RE
-PREFIX_SEMVER_RE = r"([a-zA-Z]+-)?" + SEMVER_RE
-PREFIX_SEMVER_RE_BOUNDARIES = r"^([a-zA-Z]+-)?" + SEMVER_RE + r"$"
+PREFIX_SEMVER_RE = r"([a-zA-Z]+-)?" + V_SEMVER_RE
+PREFIX_SEMVER_RE_BOUNDARIES = r"^([a-zA-Z]+-)?" + V_SEMVER_RE + r"$"
 
 
 def get_all_changes(vcs_client, skip_merges=False, only_merges=False):
